@@ -64,7 +64,7 @@ def test_reserver_salle_refuse_chevauchement():
             "participants": "5"
         })
         # Doit avoir une erreur ou redirection, pas d'intégrity error
-        # On vérifie que la page s'affiche quand même
+        # La page doit s'afficher
         resp = client.get("/")
         assert resp.status_code == 200
 
@@ -82,8 +82,67 @@ def test_reserver_salle_capacite_depassee():
         })
         # Doit être redirigé vers la page d'erreur capacité
         assert resp.status_code == 302
-        # La redirection doit inclure l'erreur capacite
-        resp = client.get("/salles/1/reserver?erreur=capacite")
         # La page d'accueil doit afficher le message d'erreur
         resp = client.get("/")
         assert b"capacite" in resp.data
+
+
+def test_reserver_salle_plage_interdite():
+    """S1 : réservation 7h30-9h refusée (avant 8h)."""
+    with app.test_client() as client:
+        # Essaie de réserver 7h30-9h qui est avant 8h
+        resp = client.post("/salles/1/reserver", data={
+            "personne": "Bob",
+            "date": "2026-11-10",
+            "debut": "07:30",
+            "fin": "09:00",
+            "participants": "5"
+        })
+        # Doit être redirigé vers erreur plage
+        assert resp.status_code == 302
+        # La page d'accueil doit afficher le message d'erreur
+        resp = client.get("/")
+        assert b"plage" in resp.data
+
+
+def test_reserver_salle_duree_trop_courte():
+    """S1 : réservation 14h-14h20 refusée (moins de 30 min)."""
+    with app.test_client() as client:
+        # Essaie de réserver 14h-14h20 qui dure moins de 30 min
+        resp = client.post("/salles/1/reserver", data={
+            "personne": "Bob",
+            "date": "2026-11-10",
+            "debut": "14:00",
+            "fin": "14:20",
+            "participants": "5"
+        })
+        # Doit être redirigé vers erreur durée
+        assert resp.status_code == 302
+        # La page d'accueil doit afficher le message d'erreur
+        resp = client.get("/")
+        assert b"duree" in resp.data
+
+
+def test_reserver_salle_duree_trop_longue():
+    """S1 : réservation 8h-13h refusée (plus de 4h)."""
+    with app.test_client() as client:
+        # Essaie de réserver 8h-13h qui dure plus de 4h
+        resp = client.post("/salles/1/reserver", data={
+            "personne": "Bob",
+            "date": "2026-11-10",
+            "debut": "08:00",
+            "fin": "13:00",
+            "participants": "5"
+        })
+        # Doit être redirigé vers erreur durée
+        assert resp.status_code == 302
+        # La page d'accueil doit afficher le message d'erreur
+        resp = client.get("/")
+        assert b"duree" in resp.data
+
+
+def test_planning_route():
+    """Vérifier que la route /salles/1/planning répond bien."""
+    with app.test_client() as client:
+        resp = client.get("/salles/1/planning")
+        assert resp.status_code == 200

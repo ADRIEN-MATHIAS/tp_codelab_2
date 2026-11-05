@@ -27,6 +27,7 @@ PAGE = """
         <input name="participants" type="number" min="1" placeholder="Participants" required>
         <button>Réserver</button>
       </form>
+      <a href="/salles/{{ salle["id"] }}/planning">Planning</a>
     </li>
   {% endfor %}
 </ul>
@@ -40,6 +41,10 @@ PAGE = """
 
 {% if erreur == "capacite" %}
 <p style="color:red">Erreur : Le nombre de participants dépasse la capacité de la salle.</p>
+{% elif erreur == "plage" %}
+<p style="color:red">Erreur : La réservation doit être comprise entre 8h00 et 20h00.</p>
+{% elif erreur == "duree" %}
+<p style="color:red">Erreur : La durée doit être comprise entre 30 minutes et 4 heures.</p>
 {% elif erreur == "chevauchement" %}
 <p style="color:red">Erreur : Une réservation existe déjà à cette heure.</p>
 {% endif %}
@@ -105,6 +110,17 @@ def reserver_salle(salle_id):
         if participants > capacite_salle:
             return redirect("/?erreur=capacite")
         
+        # Vérifier que la réservation a lieu entre 8h00 et 20h00
+        debut_min = int(debut.split(":")[0]) * 60 + int(debut.split(":")[1])
+        fin_min = int(fin.split(":")[0]) * 60 + int(fin.split(":")[1])
+        if debut_min < 8 * 60 or fin_min > 20 * 60:
+            return redirect("/?erreur=plage")
+        
+        # Vérifier la durée de la réservation (entre 30 min et 4h)
+        duree_min = fin_min - debut_min
+        if duree_min < 30 or duree_min > 4 * 60:
+            return redirect("/?erreur=duree")
+        
         # Vérifier les chevauchements avec les réservations existantes
         reservations_existantes = conn.execute(
             "SELECT debut, fin FROM reservations WHERE salle_id = ?", [salle_id]
@@ -129,6 +145,59 @@ def reserver_salle(salle_id):
         else:
             return redirect("/?erreur=chevauchement")
     return redirect("/")
+
+
+# Planning d'une salle sur une semaine
+@app.get("/salles/<int:salle_id>/planning")
+def planning_salle(salle_id):
+    with ouvrir_base() as conn:
+        # Récupérer toutes les réservations pour cette salle
+        reservations = conn.execute(
+            "SELECT date, debut, fin, personne FROM reservations WHERE salle_id = ? ORDER BY date, debut", [salle_id]
+        ).fetchall()
+        # Récupérer le nom de la salle
+        salle = conn.execute("SELECT nom FROM salles WHERE id = ?", [salle_id]).fetchone()
+        salle_nom = salle["nom"] if salle else "Salle inconnue"
+    
+    # Days of the week in French
+    jours_semaine = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+    
+    # Organiser les réservations par jour
+    planning = {i: [] for i in range(7)}
+    from datetime import datetime
+    for res in reservations:
+        # Calculer le jour de la semaine (lundi = 0, dimanche = 6)
+        date_obj = datetime.strptime(res["date"], "%Y-%m-%d")
+        jour_semaine_idx = (date_obj.weekday() + 1) % 7  # lundi=0, dimanche=6
+        planning[jour_semaine_idx].append({
+            "personne": res["personne"],
+            "debut": res["debut"],
+            "fin": res["fin"],
+            "date": res["date"]
+        })
+    
+    return render_template_string("""
+    <h1>Planning de {{ salle_nom }}</h1>
+    <p><a href="/">Retour à l'accueil</a></p>
+    <div class="planning">
+    {% for i in range(7) %}
+      <h2>{{ jours_semaine[i] }}</h2>
+      <div class="day">
+      {% set has_reservations = planning[i] | length > 0 %}
+      {% if has_reservations %}
+      {% for reservation in planning[i] %}
+        <div class="reservation">
+          <strong>{{ reservation.personne }}</strong> {{ reservation.debut }} - {{ reservation.fin }} <br>
+          {{ reservation.date }}
+        </div>
+      {% endfor %}
+      {% else %}
+        <p>Aucune réservation</p>
+      {% endif %}
+      </div>
+    {% endfor %}
+    </div>
+    """, salle_nom=salle_nom, planning=planning, jours_semaine=jours_semaine)
 
 
 # Ajoutez vos fonctions ici. Le HTML va dans PAGE.
