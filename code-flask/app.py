@@ -53,6 +53,21 @@ PAGE = """
   <label style="margin-right: 16px;"><input name="projecteur" type="checkbox" value="1"> Projecteur</label>
   <button style="padding: 8px 16px;">Modifier</button>
 </form>
+
+<h2>Réserver une salle</h2>
+<form method="post" action="/reservations" style="margin-top: 20px;">
+  <select name="salle_id" required style="padding: 8px; margin-right: 8px;">
+    {% for salle in salles %}
+      <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+    {% endfor %}
+  </select>
+  <input name="personne" placeholder="Nom" required style="padding: 8px; margin-right: 8px;">
+  <input name="date" type="date" required style="padding: 8px; margin-right: 8px;">
+  <input name="debut" type="time" required style="padding: 8px; margin-right: 8px;">
+  <input name="fin" type="time" required style="padding: 8px; margin-right: 8px;">
+  <input name="participants" type="number" min="1" placeholder="Participants" required style="padding: 8px; margin-right: 8px;">
+  <button style="padding: 8px 16px;">Réserver</button>
+</form>
 """
 
 app = Flask(__name__)
@@ -99,6 +114,37 @@ def modifier_salle():
         if capacite:
             conn.execute("UPDATE salles SET capacite = ? WHERE id = ?", [int(capacite), salle_id])
         conn.execute("UPDATE salles SET projecteur = ? WHERE id = ?", [projecteur, salle_id])
+    return redirect("/")
+
+
+# Ajoute une réservation.
+@app.post("/reservations")
+def ajouter_reservation():
+    salle_id = int(request.form["salle_id"])
+    personne = request.form["personne"]
+    date = request.form["date"]
+    debut = request.form["debut"]
+    fin = request.form["fin"]
+    participants = int(request.form["participants"])
+    
+    with ouvrir_base() as conn:
+        # Vérifie la capacité de la salle
+        salle = conn.execute("SELECT capacite FROM salles WHERE id = ?", [salle_id]).fetchone()
+        if salle is None:
+            return "Salle introuvable", 400
+        if participants > salle["capacite"]:
+            return "Trop de participants", 400
+        
+        count = conn.execute(
+            "SELECT COUNT(*) FROM reservations WHERE salle_id = ? AND date = ? AND NOT (fin <= ? OR ? <= debut)",
+            [salle_id, date, debut, fin]
+        ).fetchone()[0]
+        if count > 0:
+            return "Chevauchement", 400
+        conn.execute(
+            "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
+            [salle_id, personne, date, debut, fin, participants]
+        )
     return redirect("/")
 
 

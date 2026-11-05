@@ -43,3 +43,50 @@ def test_modifier_salle():
         assert salle["nom"] == "S5-modifie"
         assert salle["capacite"] == 20
         assert salle["projecteur"] == 1
+
+
+def test_reserver_salle_sans_chevauchement():
+    client = app.test_client()
+    date_test = "2026-11-09"
+    with ouvrir_base() as conn:
+        conn.execute("INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
+                      [1, "Alice", date_test, "10:00", "12:00", 5])
+    response = client.post("/reservations", data={
+        "salle_id": "1",
+        "personne": "Bob",
+        "date": date_test,
+        "debut": "12:00",
+        "fin": "13:00",
+        "participants": "3"
+    })
+    assert response.status_code == 302
+
+
+def test_reserver_salle_avec_chevauchement():
+    client = app.test_client()
+    date_test = "2026-11-09"
+    with ouvrir_base() as conn:
+        conn.execute("INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
+                      [1, "Alice", date_test, "10:00", "12:00", 5])
+    response = client.post("/reservations", data={
+        "salle_id": "1",
+        "personne": "Charlie",
+        "date": date_test,
+        "debut": "11:00",
+        "fin": "13:00",
+        "participants": "2"
+    })
+    assert response.status_code == 400
+
+
+def test_reserver_trop_participants():
+    client = app.test_client()
+    response = client.post("/reservations", data={
+        "salle_id": "1",
+        "personne": "Dave",
+        "date": "2026-11-10",
+        "debut": "14:00",
+        "fin": "15:00",
+        "participants": "25"
+    })
+    assert response.status_code == 400
