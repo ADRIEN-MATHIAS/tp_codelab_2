@@ -15,3 +15,18 @@ def test_ajouter_salle():
         assert salle is not None
         assert salle["capacite"] == 15
         assert salle["projecteur"] == 1
+
+
+def test_supprimer_salle():
+    client = app.test_client()
+    with ouvrir_base() as conn:
+        conn.execute("INSERT INTO salles (nom, capacite, projecteur) VALUES (?, ?, ?)", ["S4", 10, 0])
+        conn.execute("INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)", 
+                      [conn.execute("SELECT id FROM salles WHERE nom = ?", ["S4"]).fetchone()["id"], "Bob", "2026-11-09", "14:00", "16:00", 5])
+    response = client.post("/salles/supprimer", data={"id": conn.execute("SELECT id FROM salles WHERE nom = ?", ["S4"]).fetchone()["id"]})
+    assert response.status_code == 302
+    with ouvrir_base() as conn:
+        salle = conn.execute("SELECT * FROM salles WHERE nom = ?", ["S4"]).fetchone()
+        assert salle is None
+        reservation = conn.execute("SELECT * FROM reservations WHERE personne = ?", ["Bob"]).fetchone()
+        assert reservation is None
