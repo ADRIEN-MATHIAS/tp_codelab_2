@@ -103,7 +103,7 @@ def reserver_salle(salle_id):
         
         # Vérifier que le nombre de participants ne dépasse pas la capacité
         if participants > capacite_salle:
-            return redirect("/salles/" + str(salle_id) + "/reserver?erreur=capacite")
+            return redirect("/?erreur=capacite")
         
         # Vérifier les chevauchements avec les réservations existantes
         reservations_existantes = conn.execute(
@@ -127,7 +127,7 @@ def reserver_salle(salle_id):
                 [salle_id, personne, date, debut, fin, participants]
             )
         else:
-            return redirect("/salles/" + str(salle_id) + "/reserver?erreur=chevauchement")
+            return redirect("/?erreur=chevauchement")
     return redirect("/")
 
 
