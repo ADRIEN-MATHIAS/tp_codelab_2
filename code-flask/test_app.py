@@ -90,3 +90,42 @@ def test_reserver_trop_participants():
         "participants": "25"
     })
     assert response.status_code == 400
+
+
+def test_reserver_avant_8h():
+    client = app.test_client()
+    response = client.post("/reservations", data={
+        "salle_id": "1",
+        "personne": "Eve",
+        "date": "2026-11-10",
+        "debut": "07:30",
+        "fin": "09:00",
+        "participants": "5"
+    })
+    assert response.status_code == 400
+
+
+def test_reserver_duree_trop_courte():
+    client = app.test_client()
+    response = client.post("/reservations", data={
+        "salle_id": "1",
+        "personne": "Frank",
+        "date": "2026-11-10",
+        "debut": "14:00",
+        "fin": "14:20",
+        "participants": "5"
+    })
+    assert response.status_code == 400
+
+
+def test_reserver_duree_trop_longue():
+    client = app.test_client()
+    response = client.post("/reservations", data={
+        "salle_id": "1",
+        "personne": "Grace",
+        "date": "2026-11-10",
+        "debut": "08:00",
+        "fin": "13:00",
+        "participants": "5"
+    })
+    assert response.status_code == 400

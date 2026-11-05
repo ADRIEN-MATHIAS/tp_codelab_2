@@ -117,6 +117,12 @@ def modifier_salle():
     return redirect("/")
 
 
+def heure_en_minutes(heure):
+    """Convertit une heure HH:MM en minutes depuis minuit."""
+    h, m = map(int, heure.split(":"))
+    return h * 60 + m
+
+
 # Ajoute une réservation.
 @app.post("/reservations")
 def ajouter_reservation():
@@ -126,6 +132,17 @@ def ajouter_reservation():
     debut = request.form["debut"]
     fin = request.form["fin"]
     participants = int(request.form["participants"])
+    
+    # Vérifie les horaires
+    debut_min = heure_en_minutes(debut)
+    fin_min = heure_en_minutes(fin)
+    
+    if debut_min < 8 * 60 or fin_min > 20 * 60:
+        return "Horaire en dehors de 8h-20h", 400
+    
+    duree_min = fin_min - debut_min
+    if duree_min < 30 or duree_min > 4 * 60:
+        return "Durée invalide", 400
     
     with ouvrir_base() as conn:
         # Vérifie la capacité de la salle
