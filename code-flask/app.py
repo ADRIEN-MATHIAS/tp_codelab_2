@@ -13,6 +13,12 @@ PAGE = """
       <form method="post" action="/salles/{{ salle["id"] }}/supprimer">
         <button>Supprimer</button>
       </form>
+      <form method="post" action="/salles/{{ salle["id"] }}/modifier">
+        <input name="nom" value="{{ salle["nom"] }}" placeholder="Nom" required>
+        <input name="capacite" type="number" min="1" value="{{ salle["capacite"] }}" placeholder="Capacité" required>
+        projecteur: <input name="projecteur" type="checkbox" value="1" {% if salle["projecteur"] == 1 %}checked{% endif %}>
+        <button>Modifier</button>
+      </form>
     </li>
   {% endfor %}
 </ul>
@@ -52,6 +58,17 @@ def ajouter_salle():
 def supprimer_salle(salle_id):
     with ouvrir_base() as conn:
         conn.execute("DELETE FROM salles WHERE id = ?", [salle_id])
+    return redirect("/")
+
+
+# Modifier une salle existante
+@app.post("/salles/<int:salle_id>/modifier")
+def modifier_salle(salle_id):
+    nom = request.form["nom"]
+    capacite = int(request.form["capacite"])
+    projecteur = 1 if request.form.get("projecteur") else 0
+    with ouvrir_base() as conn:
+        conn.execute("UPDATE salles SET nom = ?, capacite = ?, projecteur = ? WHERE id = ?", [nom, capacite, projecteur, salle_id])
     return redirect("/")
 
 

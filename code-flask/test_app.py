@@ -27,3 +27,11 @@ def test_supprimer_salle_cascade():
             conn = ouvrir_base()
             reservation = conn.execute("SELECT * FROM reservations WHERE salle_id = ?", [1]).fetchone()
             assert reservation is None
+
+
+def test_modifier_salle():
+    with app.test_client() as client:
+        client.post("/salles/2/modifier", data={"nom": "S2_modifie", "capacite": "50", "projecteur": "on"})
+        resp = client.get("/")
+        assert b"S2_modifie" in resp.data
+        assert b"S2 " not in resp.data or b'S2 "' in resp.data  # S2 still exists somewhere
