@@ -68,6 +68,19 @@ PAGE = """
   <input name="participants" type="number" min="1" placeholder="Participants" required style="padding: 8px; margin-right: 8px;">
   <button style="padding: 8px 16px;">Réserver</button>
 </form>
+
+<h2>Réservations</h2>
+<div class="salles-grid" style="margin-top: 20px;">
+  {% for reservation in reservations %}
+    <div style="padding: 8px; background: #e3f2fd; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+      <span style="line-height: 24px;">{{ reservation["personne"] }} - {{ reservation["nom"] }} - {{ reservation["date"] }} {{ reservation["debut"] }}-{{ reservation["fin"] }} ({{ reservation["participants"] }} pers.)</span>
+      <form method="post" action="/reservations/supprimer">
+        <input type="hidden" name="id" value="{{ reservation['id'] }}">
+        <button type="submit" style="background-color: red; color: white; border: none; padding: 0 12px; border-radius: 4px; cursor: pointer; line-height: 24px;">Annuler</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
 """
 
 app = Flask(__name__)
@@ -78,7 +91,10 @@ app = Flask(__name__)
 def accueil():
     with ouvrir_base() as conn:
         salles = conn.execute("SELECT id, nom, capacite, projecteur FROM salles").fetchall()
-    return render_template_string(PAGE, salles=salles)
+        reservations = conn.execute(
+            "SELECT r.id, r.personne, r.date, r.debut, r.fin, r.participants, s.nom FROM reservations r JOIN salles s ON r.salle_id = s.id"
+        ).fetchall()
+    return render_template_string(PAGE, salles=salles, reservations=reservations)
 
 
 # Exemple : reçoit le formulaire et ajoute une salle.
@@ -162,6 +178,15 @@ def ajouter_reservation():
             "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
             [salle_id, personne, date, debut, fin, participants]
         )
+    return redirect("/")
+
+
+# Supprime une réservation.
+@app.post("/reservations/supprimer")
+def supprimer_reservation():
+    reservation_id = int(request.form["id"])
+    with ouvrir_base() as conn:
+        conn.execute("DELETE FROM reservations WHERE id = ?", [reservation_id])
     return redirect("/")
 
 

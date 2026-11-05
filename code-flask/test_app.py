@@ -129,3 +129,16 @@ def test_reserver_duree_trop_longue():
         "participants": "5"
     })
     assert response.status_code == 400
+
+
+def test_annuler_reservation():
+    client = app.test_client()
+    with ouvrir_base() as conn:
+        conn.execute("INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
+                      [1, "Heidi", "2026-11-11", "10:00", "12:00", 5])
+        reservation_id = conn.execute("SELECT id FROM reservations WHERE personne = ?", ["Heidi"]).fetchone()["id"]
+    response = client.post("/reservations/supprimer", data={"id": reservation_id})
+    assert response.status_code == 302
+    with ouvrir_base() as conn:
+        reservation = conn.execute("SELECT * FROM reservations WHERE personne = ?", ["Heidi"]).fetchone()
+        assert reservation is None
