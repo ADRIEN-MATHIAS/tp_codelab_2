@@ -142,3 +142,9 @@ def test_annuler_reservation():
     with ouvrir_base() as conn:
         reservation = conn.execute("SELECT * FROM reservations WHERE personne = ?", ["Heidi"]).fetchone()
         assert reservation is None
+
+
+def test_planning():
+    client = app.test_client()
+    response = client.get("/planning?salle_id=1&date=2026-11-09")
+    assert response.status_code == 200

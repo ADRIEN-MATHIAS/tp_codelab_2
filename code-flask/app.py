@@ -81,6 +81,17 @@ PAGE = """
     </div>
   {% endfor %}
 </div>
+
+<h2>Planning d'une salle</h2>
+<form method="get" action="/planning" style="margin-top: 20px;">
+  <select name="salle_id" required style="padding: 8px; margin-right: 8px;">
+    {% for salle in salles %}
+      <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+    {% endfor %}
+  </select>
+  <input name="date" type="date" required style="padding: 8px; margin-right: 8px;">
+  <button style="padding: 8px 16px;">Voir planning</button>
+</form>
 """
 
 app = Flask(__name__)
@@ -188,6 +199,33 @@ def supprimer_reservation():
     with ouvrir_base() as conn:
         conn.execute("DELETE FROM reservations WHERE id = ?", [reservation_id])
     return redirect("/")
+
+
+# Affiche le planning d'une salle pour une semaine.
+@app.get("/planning")
+def planning():
+    salle_id = int(request.args.get("salle_id", 1))
+    date_lundi = request.args.get("date", "2026-11-09")
+    
+    with ouvrir_base() as conn:
+        salle = conn.execute("SELECT nom FROM salles WHERE id = ?", [salle_id]).fetchone()
+        date_dimanche = conn.execute("SELECT date(?, '+6 days')", [date_lundi]).fetchone()[0]
+        reservations = conn.execute(
+            "SELECT id, personne, date, debut, fin, participants FROM reservations WHERE salle_id = ? AND date >= ? AND date <= ? ORDER BY date, debut",
+            [salle_id, date_lundi, date_dimanche]
+        ).fetchall()
+    
+    return render_template_string("""
+    <h1>Planning de {{ salle["nom"] }} du {{ date_lundi }} au {{ date_dimanche }}</h1>
+    <a href="/">Retour</a>
+    <div style="margin-top: 20px;">
+      {% for r in reservations %}
+        <div style="padding: 8px; background: #e3f2fd; margin: 5px 0;">
+          {{ r["date"] }} {{ r["debut"] }}-{{ r["fin"] }} : {{ r["personne"] }} ({{ r["participants"] }} pers.)
+        </div>
+      {% endfor %}
+    </div>
+    """, salle=salle, reservations=reservations, date_lundi=date_lundi, date_dimanche=date_dimanche)
 
 
 # Ajoutez vos fonctions ici. Le HTML va dans PAGE.
