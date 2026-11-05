@@ -16,6 +16,7 @@ PAGE = """
 <form method="post" action="/salles">
   <input name="nom" placeholder="Nom" required>
   <input name="capacite" type="number" min="1" placeholder="Capacité" required>
+  <label><input name="projecteur" type="checkbox" value="1"> Projecteur</label>
   <button>Ajouter</button>
 </form>
 """
@@ -36,8 +37,9 @@ def accueil():
 def ajouter_salle():
     nom = request.form["nom"]
     capacite = int(request.form["capacite"])
+    projecteur = int(request.form.get("projecteur", 0))
     with ouvrir_base() as conn:
-        conn.execute("INSERT INTO salles (nom, capacite) VALUES (?, ?)", [nom, capacite])
+        conn.execute("INSERT INTO salles (nom, capacite, projecteur) VALUES (?, ?, ?)", [nom, capacite, projecteur])
     return redirect("/")
 
 
