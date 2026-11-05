@@ -37,6 +37,12 @@ PAGE = """
   projecteur: <input name="projecteur" type="checkbox" value="1">
   <button>Ajouter</button>
 </form>
+
+{% if erreur == "capacite" %}
+<p style="color:red">Erreur : Le nombre de participants dépasse la capacité de la salle.</p>
+{% elif erreur == "chevauchement" %}
+<p style="color:red">Erreur : Une réservation existe déjà à cette heure.</p>
+{% endif %}
 """
 
 app = Flask(__name__)
@@ -45,9 +51,10 @@ app = Flask(__name__)
 # Page d'accueil : lit les salles et affiche PAGE.
 @app.get("/")
 def accueil():
+    erreur = request.args.get('erreur')
     with ouvrir_base() as conn:
         salles = conn.execute("SELECT id, nom FROM salles").fetchall()
-    return render_template_string(PAGE, salles=salles)
+    return render_template_string(PAGE, salles=salles, erreur=erreur)
 
 
 # Exemple : reçoit le formulaire et ajoute une salle.
@@ -90,6 +97,14 @@ def reserver_salle(salle_id):
     participants = int(request.form["participants"])
     
     with ouvrir_base() as conn:
+        # Récupérer la capacité de la salle
+        salle = conn.execute("SELECT capacite FROM salles WHERE id = ?", [salle_id]).fetchone()
+        capacite_salle = salle["capacite"] if salle else 0
+        
+        # Vérifier que le nombre de participants ne dépasse pas la capacité
+        if participants > capacite_salle:
+            return redirect("/salles/" + str(salle_id) + "/reserver?erreur=capacite")
+        
         # Vérifier les chevauchements avec les réservations existantes
         reservations_existantes = conn.execute(
             "SELECT debut, fin FROM reservations WHERE salle_id = ?", [salle_id]
@@ -111,6 +126,8 @@ def reserver_salle(salle_id):
                 "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
                 [salle_id, personne, date, debut, fin, participants]
             )
+        else:
+            return redirect("/salles/" + str(salle_id) + "/reserver?erreur=chevauchement")
     return redirect("/")
 
 

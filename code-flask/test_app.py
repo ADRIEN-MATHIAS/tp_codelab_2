@@ -67,3 +67,23 @@ def test_reserver_salle_refuse_chevauchement():
         # On vérifie que la page s'affiche quand même
         resp = client.get("/")
         assert resp.status_code == 200
+
+
+def test_reserver_salle_capacite_depassee():
+    """S1 a capacité 20, réservation à 25 participants doit être refusée."""
+    with app.test_client() as client:
+        # Essaye de réserver S1 avec 25 participants (capacité = 20)
+        resp = client.post("/salles/1/reserver", data={
+            "personne": "Bob",
+            "date": "2026-11-10",
+            "debut": "14:00",
+            "fin": "15:00",
+            "participants": "25"
+        })
+        # Doit être redirigé vers la page d'erreur capacité
+        assert resp.status_code == 302
+        # La redirection doit inclure l'erreur capacite
+        resp = client.get("/salles/1/reserver?erreur=capacite")
+        # La page d'accueil doit afficher le message d'erreur
+        resp = client.get("/")
+        assert b"capacite" in resp.data
