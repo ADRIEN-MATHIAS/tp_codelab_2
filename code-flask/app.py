@@ -8,91 +8,103 @@ PAGE = """
 <div class="main-content">
   <h1>Réservation de salles</h1>
 
-  <div class="stack">
-    <h2>Salles</h2>
-    <div class="room-grid">
-      {% for salle in salles %}
-        <div class="room-card">
-          <div class="flex" style="justify-content: space-between; width: 100%;">
-            <span class="text-primary">{{ salle["nom"] }}</span>
-            <form method="post" action="/salles/supprimer">
-              <input type="hidden" name="id" value="{{ salle['id'] }}">
-              <button type="submit" class="btn btn-danger btn-sm">Supprimer</button>
-            </form>
+  <div class="stack-xl">
+    <section>
+      <h2>Salles</h2>
+      <div class="room-grid">
+        {% for salle in salles %}
+          <div class="room-card">
+            <div class="flex" style="justify-content: space-between; width: 100%;">
+              <span class="text-primary">{{ salle["nom"] }}</span>
+              <form method="post" action="/salles/supprimer">
+                <input type="hidden" name="id" value="{{ salle['id'] }}">
+                <button type="submit" class="btn btn-danger btn-sm">Supprimer</button>
+              </form>
+            </div>
           </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="mt-6">
+      <h2>Ajouter une salle</h2>
+      <form method="post" action="/salles" class="flex-col">
+        <div class="flex">
+          <input name="nom" placeholder="Nom" required class="input">
+          <input name="capacite" type="number" min="1" placeholder="Capacité" required class="input">
+          <label class="flex items-center gap-2"><input name="projecteur" type="checkbox" value="1" class="checkbox"> Projecteur</label>
+          <button class="btn btn-primary">Ajouter</button>
         </div>
-      {% endfor %}
-    </div>
+      </form>
+    </section>
 
-    <h2>Ajouter une salle</h2>
-    <form method="post" action="/salles" class="flex-col">
-      <div class="flex">
-        <input name="nom" placeholder="Nom" required class="input">
-        <input name="capacite" type="number" min="1" placeholder="Capacité" required class="input">
-        <label class="flex items-center gap-2"><input name="projecteur" type="checkbox" value="1" class="checkbox"> Projecteur</label>
-        <button class="btn btn-primary">Ajouter</button>
-      </div>
-    </form>
+    <section class="mt-6">
+      <h2>Modifier une salle</h2>
+      <form method="post" action="/salles/modifier" class="flex-col">
+        <div class="flex">
+          <select name="id" required class="select">
+            {% for salle in salles %}
+              <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+            {% endfor %}
+          </select>
+          <input name="nom" placeholder="Nouveau nom" class="input">
+          <input name="capacite" type="number" min="1" placeholder="Nouvelle capacité" class="input">
+          <label class="flex items-center gap-2"><input name="projecteur" type="checkbox" value="1" class="checkbox"> Projecteur</label>
+          <button class="btn btn-primary">Modifier</button>
+        </div>
+      </form>
+    </section>
 
-    <h2>Modifier une salle</h2>
-    <form method="post" action="/salles/modifier" class="flex-col">
-      <div class="flex">
-        <select name="id" required class="select">
-          {% for salle in salles %}
-            <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
-          {% endfor %}
-        </select>
-        <input name="nom" placeholder="Nouveau nom" class="input">
-        <input name="capacite" type="number" min="1" placeholder="Nouvelle capacité" class="input">
-        <label class="flex items-center gap-2"><input name="projecteur" type="checkbox" value="1" class="checkbox"> Projecteur</label>
-        <button class="btn btn-primary">Modifier</button>
-      </div>
-    </form>
+    <section class="mt-6">
+      <h2>Réserver une salle</h2>
+      <form method="post" action="/reservations" class="flex-col">
+        <div class="flex flex-wrap">
+          <select name="salle_id" required class="select">
+            {% for salle in salles %}
+              <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+            {% endfor %}
+          </select>
+          <input name="personne" placeholder="Nom" required class="input">
+          <input name="date" type="date" required class="input">
+          <input name="debut" type="time" required class="input">
+          <input name="fin" type="time" required class="input">
+          <input name="participants" type="number" min="1" placeholder="Participants" required class="input">
+          <button class="btn btn-primary">Réserver</button>
+        </div>
+      </form>
+    </section>
 
-    <h2>Réserver une salle</h2>
-    <form method="post" action="/reservations" class="flex-col">
-      <div class="flex flex-wrap">
-        <select name="salle_id" required class="select">
-          {% for salle in salles %}
-            <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
-          {% endfor %}
-        </select>
-        <input name="personne" placeholder="Nom" required class="input">
-        <input name="date" type="date" required class="input">
-        <input name="debut" type="time" required class="input">
-        <input name="fin" type="time" required class="input">
-        <input name="participants" type="number" min="1" placeholder="Participants" required class="input">
-        <button class="btn btn-primary">Réserver</button>
-      </div>
-    </form>
-
-    <h2>Réservations</h2>
-    <div class="reservation-list">
-      {% for reservation in reservations %}
-        <div class="reservation confirmed">
-          <div class="flex" style="justify-content: space-between; width: 100%; flex-wrap: wrap;">
-            <span>{{ reservation["personne"] }} - {{ reservation["nom"] }} - {{ reservation["date"] }} {{ reservation["debut"] }}-{{ reservation["fin"] }} ({{ reservation["participants"] }} pers.)</span>
-            <form method="post" action="/reservations/supprimer">
-              <input type="hidden" name="id" value="{{ reservation['id'] }}">
-              <button type="submit" class="btn btn-danger btn-sm">Annuler</button>
-            </form>
+    <section class="mt-6">
+      <h2>Réservations</h2>
+      <div class="reservation-list">
+        {% for reservation in reservations %}
+          <div class="reservation confirmed">
+            <div class="flex" style="justify-content: space-between; width: 100%; flex-wrap: wrap;">
+              <span>{{ reservation["personne"] }} - {{ reservation["nom"] }} - {{ reservation["date"] }} {{ reservation["debut"] }}-{{ reservation["fin"] }} ({{ reservation["participants"] }} pers.)</span>
+              <form method="post" action="/reservations/supprimer">
+                <input type="hidden" name="id" value="{{ reservation['id'] }}">
+                <button type="submit" class="btn btn-danger btn-sm">Annuler</button>
+              </form>
+            </div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
-
-    <h2>Planning d'une salle</h2>
-    <form method="get" action="/planning" class="flex-col">
-      <div class="flex">
-        <select name="salle_id" required class="select">
-          {% for salle in salles %}
-            <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
-          {% endfor %}
-        </select>
-        <input name="date" type="date" required class="input">
-        <button class="btn btn-primary">Voir planning</button>
+        {% endfor %}
       </div>
-    </form>
+    </section>
+
+    <section class="mt-6">
+      <h2>Planning d'une salle</h2>
+      <form method="get" action="/planning" class="flex-col">
+        <div class="flex">
+          <select name="salle_id" required class="select">
+            {% for salle in salles %}
+              <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+            {% endfor %}
+          </select>
+          <input name="date" type="date" required class="input">
+          <button class="btn btn-primary">Voir planning</button>
+        </div>
+      </form>
+    </section>
   </div>
 </div>
 
@@ -113,6 +125,9 @@ PAGE = """
   .items-center { align-items: center; }
   .gap-2 { gap: var(--spacing-xs); }
   .flex-col { flex-direction: column; }
+  .stack-xl { display: flex; flex-direction: column; gap: var(--spacing-xl); }
+  .mt-6 { margin-top: var(--spacing-xl); }
+  section { padding-bottom: var(--spacing-lg); }
 </style>
 """
 
@@ -245,17 +260,19 @@ def planning():
         <h1>Planning de {{ salle_nom }}</h1>
         <a href="/" class="btn btn-secondary">Retour</a>
       </div>
-      <p class="text-muted mb-3">Du {{ date_lundi }} au {{ date_dimanche }}</p>
-      <div class="reservation-list">
+      <p class="text-muted mb-4">Du {{ date_lundi }} au {{ date_dimanche }}</p>
+      <div class="reservation-list mt-4">
         {% for r in reservations %}
-          <div class="reservation confirmed">
+          <div class="reservation confirmed mb-2">
             <span><strong>{{ r["date"] }}</strong> {{ r["debut"] }}-{{ r["fin"] }} : {{ r["personne"] }} ({{ r["participants"] }} pers.)</span>
           </div>
         {% endfor %}
       </div>
     </div>
     <style>
-      .mb-3 { margin-bottom: var(--spacing-md); }
+      .mb-2 { margin-bottom: var(--spacing-sm); }
+      .mb-4 { margin-bottom: var(--spacing-lg); }
+      .mt-4 { margin-top: var(--spacing-lg); }
     </style>
     """
     return render_template_string(PLANNING_PAGE, salle_nom=salle["nom"], reservations=reservations, date_lundi=date_lundi, date_dimanche=date_dimanche)

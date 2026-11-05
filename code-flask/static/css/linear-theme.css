@@ -148,7 +148,9 @@ code {
 }
 
 .main-content {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-xl) var(--spacing-2xl);
+    max-width: 1400px;
+    margin: 0 auto;
     min-height: calc(100vh - 100px);
 }
 
