@@ -9,7 +9,11 @@ PAGE = """
 <h2>Salles</h2>
 <ul>
   {% for salle in salles %}
-    <li>{{ salle["nom"] }}</li>
+    <li>{{ salle["nom"] }} 
+      <form method="post" action="/salles/{{ salle["id"] }}/supprimer">
+        <button>Supprimer</button>
+      </form>
+    </li>
   {% endfor %}
 </ul>
 
@@ -28,7 +32,7 @@ app = Flask(__name__)
 @app.get("/")
 def accueil():
     with ouvrir_base() as conn:
-        salles = conn.execute("SELECT nom FROM salles").fetchall()
+        salles = conn.execute("SELECT id, nom FROM salles").fetchall()
     return render_template_string(PAGE, salles=salles)
 
 
@@ -40,6 +44,14 @@ def ajouter_salle():
     projecteur = 1 if request.form.get("projecteur") else 0
     with ouvrir_base() as conn:
         conn.execute("INSERT INTO salles (nom, capacite, projecteur) VALUES (?, ?, ?)", [nom, capacite, projecteur])
+    return redirect("/")
+
+
+# Supprimer une salle (et ses réservations en cascade)
+@app.post("/salles/<int:salle_id>/supprimer")
+def supprimer_salle(salle_id):
+    with ouvrir_base() as conn:
+        conn.execute("DELETE FROM salles WHERE id = ?", [salle_id])
     return redirect("/")
 
 
