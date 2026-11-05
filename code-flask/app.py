@@ -40,6 +40,19 @@ PAGE = """
   <label style="margin-right: 16px;"><input name="projecteur" type="checkbox" value="1"> Projecteur</label>
   <button style="padding: 8px 16px;">Ajouter</button>
 </form>
+
+<h2>Modifier une salle</h2>
+<form method="post" action="/salles/modifier" style="margin-top: 20px;">
+  <select name="id" required style="padding: 8px; margin-right: 8px;">
+    {% for salle in salles %}
+      <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+    {% endfor %}
+  </select>
+  <input name="nom" placeholder="Nouveau nom" style="padding: 8px; margin-right: 8px;">
+  <input name="capacite" type="number" min="1" placeholder="Nouvelle capacité" style="padding: 8px; margin-right: 8px;">
+  <label style="margin-right: 16px;"><input name="projecteur" type="checkbox" value="1"> Projecteur</label>
+  <button style="padding: 8px 16px;">Modifier</button>
+</form>
 """
 
 app = Flask(__name__)
@@ -49,7 +62,7 @@ app = Flask(__name__)
 @app.get("/")
 def accueil():
     with ouvrir_base() as conn:
-        salles = conn.execute("SELECT id, nom FROM salles").fetchall()
+        salles = conn.execute("SELECT id, nom, capacite, projecteur FROM salles").fetchall()
     return render_template_string(PAGE, salles=salles)
 
 
@@ -70,6 +83,22 @@ def supprimer_salle():
     salle_id = int(request.form["id"])
     with ouvrir_base() as conn:
         conn.execute("DELETE FROM salles WHERE id = ?", [salle_id])
+    return redirect("/")
+
+
+# Modifie une salle.
+@app.post("/salles/modifier")
+def modifier_salle():
+    salle_id = int(request.form["id"])
+    nom = request.form.get("nom", "")
+    capacite = request.form.get("capacite", "")
+    projecteur = int(request.form.get("projecteur", 0))
+    with ouvrir_base() as conn:
+        if nom:
+            conn.execute("UPDATE salles SET nom = ? WHERE id = ?", [nom, salle_id])
+        if capacite:
+            conn.execute("UPDATE salles SET capacite = ? WHERE id = ?", [int(capacite), salle_id])
+        conn.execute("UPDATE salles SET projecteur = ? WHERE id = ?", [projecteur, salle_id])
     return redirect("/")
 
 

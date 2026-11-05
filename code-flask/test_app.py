@@ -30,3 +30,16 @@ def test_supprimer_salle():
         assert salle is None
         reservation = conn.execute("SELECT * FROM reservations WHERE personne = ?", ["Bob"]).fetchone()
         assert reservation is None
+
+
+def test_modifier_salle():
+    client = app.test_client()
+    with ouvrir_base() as conn:
+        conn.execute("INSERT INTO salles (nom, capacite, projecteur) VALUES (?, ?, ?)", ["S5", 10, 0])
+    response = client.post("/salles/modifier", data={"id": "1", "nom": "S5-modifie", "capacite": "20", "projecteur": "1"})
+    assert response.status_code == 302
+    with ouvrir_base() as conn:
+        salle = conn.execute("SELECT * FROM salles WHERE id = 1").fetchone()
+        assert salle["nom"] == "S5-modifie"
+        assert salle["capacite"] == 20
+        assert salle["projecteur"] == 1
