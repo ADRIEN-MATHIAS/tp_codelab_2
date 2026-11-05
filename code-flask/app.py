@@ -1,97 +1,119 @@
-from flask import Flask, redirect, render_template_string, request
+from flask import Flask, redirect, render_template_string, request, url_for
 
 from base import ouvrir_base
 
-# Le HTML de la page.
+# Le HTML de la page avec le design Linear.app
 PAGE = """
+<link rel="stylesheet" href="/static/css/linear-theme.css">
+<div class="main-content">
+  <h1>Réservation de salles</h1>
+
+  <div class="stack">
+    <h2>Salles</h2>
+    <div class="room-grid">
+      {% for salle in salles %}
+        <div class="room-card">
+          <div class="flex" style="justify-content: space-between; width: 100%;">
+            <span class="text-primary">{{ salle["nom"] }}</span>
+            <form method="post" action="/salles/supprimer">
+              <input type="hidden" name="id" value="{{ salle['id'] }}">
+              <button type="submit" class="btn btn-danger btn-sm">Supprimer</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <h2>Ajouter une salle</h2>
+    <form method="post" action="/salles" class="flex-col">
+      <div class="flex">
+        <input name="nom" placeholder="Nom" required class="input">
+        <input name="capacite" type="number" min="1" placeholder="Capacité" required class="input">
+        <label class="flex items-center gap-2"><input name="projecteur" type="checkbox" value="1" class="checkbox"> Projecteur</label>
+        <button class="btn btn-primary">Ajouter</button>
+      </div>
+    </form>
+
+    <h2>Modifier une salle</h2>
+    <form method="post" action="/salles/modifier" class="flex-col">
+      <div class="flex">
+        <select name="id" required class="select">
+          {% for salle in salles %}
+            <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+          {% endfor %}
+        </select>
+        <input name="nom" placeholder="Nouveau nom" class="input">
+        <input name="capacite" type="number" min="1" placeholder="Nouvelle capacité" class="input">
+        <label class="flex items-center gap-2"><input name="projecteur" type="checkbox" value="1" class="checkbox"> Projecteur</label>
+        <button class="btn btn-primary">Modifier</button>
+      </div>
+    </form>
+
+    <h2>Réserver une salle</h2>
+    <form method="post" action="/reservations" class="flex-col">
+      <div class="flex flex-wrap">
+        <select name="salle_id" required class="select">
+          {% for salle in salles %}
+            <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+          {% endfor %}
+        </select>
+        <input name="personne" placeholder="Nom" required class="input">
+        <input name="date" type="date" required class="input">
+        <input name="debut" type="time" required class="input">
+        <input name="fin" type="time" required class="input">
+        <input name="participants" type="number" min="1" placeholder="Participants" required class="input">
+        <button class="btn btn-primary">Réserver</button>
+      </div>
+    </form>
+
+    <h2>Réservations</h2>
+    <div class="reservation-list">
+      {% for reservation in reservations %}
+        <div class="reservation confirmed">
+          <div class="flex" style="justify-content: space-between; width: 100%; flex-wrap: wrap;">
+            <span>{{ reservation["personne"] }} - {{ reservation["nom"] }} - {{ reservation["date"] }} {{ reservation["debut"] }}-{{ reservation["fin"] }} ({{ reservation["participants"] }} pers.)</span>
+            <form method="post" action="/reservations/supprimer">
+              <input type="hidden" name="id" value="{{ reservation['id'] }}">
+              <button type="submit" class="btn btn-danger btn-sm">Annuler</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <h2>Planning d'une salle</h2>
+    <form method="get" action="/planning" class="flex-col">
+      <div class="flex">
+        <select name="salle_id" required class="select">
+          {% for salle in salles %}
+            <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
+          {% endfor %}
+        </select>
+        <input name="date" type="date" required class="input">
+        <button class="btn btn-primary">Voir planning</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <style>
-  .salles-grid {
+  .room-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: var(--spacing-md);
     width: 100%;
   }
   @media (min-width: 600px) {
-    .salles-grid { grid-template-columns: repeat(4, 1fr); }
+    .room-grid { grid-template-columns: repeat(4, 1fr); }
   }
   @media (min-width: 1200px) {
-    .salles-grid { grid-template-columns: repeat(8, 1fr); }
+    .room-grid { grid-template-columns: repeat(8, 1fr); }
   }
+  .flex-wrap { flex-wrap: wrap; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: var(--spacing-xs); }
+  .flex-col { flex-direction: column; }
 </style>
-<h1>Réservation de salles</h1>
-
-<h2>Salles</h2>
-<div class="salles-grid">
-  {% for salle in salles %}
-    <div style="padding: 8px; background: #f5f5f5; display: flex; align-items: center; justify-content: space-between;">
-      <span style="line-height: 24px;">{{ salle["nom"] }}</span>
-      <form method="post" action="/salles/supprimer">
-        <input type="hidden" name="id" value="{{ salle['id'] }}">
-        <button type="submit" style="background-color: red; color: white; border: none; padding: 0 12px; border-radius: 4px; cursor: pointer; line-height: 24px;">Supprimer</button>
-      </form>
-    </div>
-  {% endfor %}
-</div>
-
-<h2>Ajouter une salle</h2>
-<form method="post" action="/salles" style="margin-top: 20px;">
-  <input name="nom" placeholder="Nom" required style="padding: 8px; margin-right: 8px;">
-  <input name="capacite" type="number" min="1" placeholder="Capacité" required style="padding: 8px; margin-right: 8px;">
-  <label style="margin-right: 16px;"><input name="projecteur" type="checkbox" value="1"> Projecteur</label>
-  <button style="padding: 8px 16px;">Ajouter</button>
-</form>
-
-<h2>Modifier une salle</h2>
-<form method="post" action="/salles/modifier" style="margin-top: 20px;">
-  <select name="id" required style="padding: 8px; margin-right: 8px;">
-    {% for salle in salles %}
-      <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
-    {% endfor %}
-  </select>
-  <input name="nom" placeholder="Nouveau nom" style="padding: 8px; margin-right: 8px;">
-  <input name="capacite" type="number" min="1" placeholder="Nouvelle capacité" style="padding: 8px; margin-right: 8px;">
-  <label style="margin-right: 16px;"><input name="projecteur" type="checkbox" value="1"> Projecteur</label>
-  <button style="padding: 8px 16px;">Modifier</button>
-</form>
-
-<h2>Réserver une salle</h2>
-<form method="post" action="/reservations" style="margin-top: 20px;">
-  <select name="salle_id" required style="padding: 8px; margin-right: 8px;">
-    {% for salle in salles %}
-      <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
-    {% endfor %}
-  </select>
-  <input name="personne" placeholder="Nom" required style="padding: 8px; margin-right: 8px;">
-  <input name="date" type="date" required style="padding: 8px; margin-right: 8px;">
-  <input name="debut" type="time" required style="padding: 8px; margin-right: 8px;">
-  <input name="fin" type="time" required style="padding: 8px; margin-right: 8px;">
-  <input name="participants" type="number" min="1" placeholder="Participants" required style="padding: 8px; margin-right: 8px;">
-  <button style="padding: 8px 16px;">Réserver</button>
-</form>
-
-<h2>Réservations</h2>
-<div class="salles-grid" style="margin-top: 20px;">
-  {% for reservation in reservations %}
-    <div style="padding: 8px; background: #e3f2fd; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-      <span style="line-height: 24px;">{{ reservation["personne"] }} - {{ reservation["nom"] }} - {{ reservation["date"] }} {{ reservation["debut"] }}-{{ reservation["fin"] }} ({{ reservation["participants"] }} pers.)</span>
-      <form method="post" action="/reservations/supprimer">
-        <input type="hidden" name="id" value="{{ reservation['id'] }}">
-        <button type="submit" style="background-color: red; color: white; border: none; padding: 0 12px; border-radius: 4px; cursor: pointer; line-height: 24px;">Annuler</button>
-      </form>
-    </div>
-  {% endfor %}
-</div>
-
-<h2>Planning d'une salle</h2>
-<form method="get" action="/planning" style="margin-top: 20px;">
-  <select name="salle_id" required style="padding: 8px; margin-right: 8px;">
-    {% for salle in salles %}
-      <option value="{{ salle['id'] }}">{{ salle["nom"] }}</option>
-    {% endfor %}
-  </select>
-  <input name="date" type="date" required style="padding: 8px; margin-right: 8px;">
-  <button style="padding: 8px 16px;">Voir planning</button>
-</form>
 """
 
 app = Flask(__name__)
@@ -124,6 +146,7 @@ def ajouter_salle():
 def supprimer_salle():
     salle_id = int(request.form["id"])
     with ouvrir_base() as conn:
+        conn.execute("DELETE FROM reservations WHERE salle_id = ?", [salle_id])
         conn.execute("DELETE FROM salles WHERE id = ?", [salle_id])
     return redirect("/")
 
@@ -215,17 +238,27 @@ def planning():
             [salle_id, date_lundi, date_dimanche]
         ).fetchall()
     
-    return render_template_string("""
-    <h1>Planning de {{ salle["nom"] }} du {{ date_lundi }} au {{ date_dimanche }}</h1>
-    <a href="/">Retour</a>
-    <div style="margin-top: 20px;">
-      {% for r in reservations %}
-        <div style="padding: 8px; background: #e3f2fd; margin: 5px 0;">
-          {{ r["date"] }} {{ r["debut"] }}-{{ r["fin"] }} : {{ r["personne"] }} ({{ r["participants"] }} pers.)
-        </div>
-      {% endfor %}
+    PLANNING_PAGE = """
+    <link rel="stylesheet" href="/static/css/linear-theme.css">
+    <div class="main-content">
+      <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: var(--spacing-xl);">
+        <h1>Planning de {{ salle_nom }}</h1>
+        <a href="/" class="btn btn-secondary">Retour</a>
+      </div>
+      <p class="text-muted mb-3">Du {{ date_lundi }} au {{ date_dimanche }}</p>
+      <div class="reservation-list">
+        {% for r in reservations %}
+          <div class="reservation confirmed">
+            <span><strong>{{ r["date"] }}</strong> {{ r["debut"] }}-{{ r["fin"] }} : {{ r["personne"] }} ({{ r["participants"] }} pers.)</span>
+          </div>
+        {% endfor %}
+      </div>
     </div>
-    """, salle=salle, reservations=reservations, date_lundi=date_lundi, date_dimanche=date_dimanche)
+    <style>
+      .mb-3 { margin-bottom: var(--spacing-md); }
+    </style>
+    """
+    return render_template_string(PLANNING_PAGE, salle_nom=salle["nom"], reservations=reservations, date_lundi=date_lundi, date_dimanche=date_dimanche)
 
 
 # Ajoutez vos fonctions ici. Le HTML va dans PAGE.
