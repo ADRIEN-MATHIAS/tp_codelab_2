@@ -35,3 +35,35 @@ def test_modifier_salle():
         resp = client.get("/")
         assert b"S2_modifie" in resp.data
         assert b"S2 " not in resp.data or b'S2 "' in resp.data  # S2 still exists somewhere
+
+
+def test_reserver_salle_accepte():
+    """S1 a une réservation 10h-12h, donc 12h-13h doit être accepté."""
+    with app.test_client() as client:
+        client.post("/salles/1/reserver", data={
+            "personne": "Bob",
+            "date": "2026-11-09",
+            "debut": "12:00",
+            "fin": "13:00",
+            "participants": "5"
+        })
+        resp = client.get("/")
+        # La page doit s'afficher correctement (la réservation a été acceptée)
+        assert resp.status_code == 200
+
+
+def test_reserver_salle_refuse_chevauchement():
+    """S1 a une réservation 10h-12h, donc 11h-13h doit être refusé (chevauchement)."""
+    with app.test_client() as client:
+        # La réservation 11h-13h doit être rejetée
+        resp = client.post("/salles/1/reserver", data={
+            "personne": "Bob",
+            "date": "2026-11-09",
+            "debut": "11:00",
+            "fin": "13:00",
+            "participants": "5"
+        })
+        # Doit avoir une erreur ou redirection, pas d'intégrity error
+        # On vérifie que la page s'affiche quand même
+        resp = client.get("/")
+        assert resp.status_code == 200

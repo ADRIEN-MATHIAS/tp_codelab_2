@@ -19,6 +19,14 @@ PAGE = """
         projecteur: <input name="projecteur" type="checkbox" value="1" {% if salle["projecteur"] == 1 %}checked{% endif %}>
         <button>Modifier</button>
       </form>
+      <form method="post" action="/salles/{{ salle["id"] }}/reserver">
+        <input name="personne" placeholder="Personne" required>
+        <input name="date" type="date" required>
+        <input name="debut" type="time" required>
+        <input name="fin" type="time" required>
+        <input name="participants" type="number" min="1" placeholder="Participants" required>
+        <button>Réserver</button>
+      </form>
     </li>
   {% endfor %}
 </ul>
@@ -69,6 +77,40 @@ def modifier_salle(salle_id):
     projecteur = 1 if request.form.get("projecteur") else 0
     with ouvrir_base() as conn:
         conn.execute("UPDATE salles SET nom = ?, capacite = ?, projecteur = ? WHERE id = ?", [nom, capacite, projecteur, salle_id])
+    return redirect("/")
+
+
+# Réserver une salle
+@app.post("/salles/<int:salle_id>/reserver")
+def reserver_salle(salle_id):
+    personne = request.form["personne"]
+    date = request.form["date"]
+    debut = request.form["debut"]
+    fin = request.form["fin"]
+    participants = int(request.form["participants"])
+    
+    with ouvrir_base() as conn:
+        # Vérifier les chevauchements avec les réservations existantes
+        reservations_existantes = conn.execute(
+            "SELECT debut, fin FROM reservations WHERE salle_id = ?", [salle_id]
+        ).fetchall()
+        
+        chevauche = False
+        for res in reservations_existantes:
+            exist_debut = res["debut"]
+            exist_fin = res["fin"]
+            # Deux intervalles [debut, fin] et [exist_debut, exist_fin] se chevauchent si :
+            # debut < exist_fin ET fin > exist_debut
+            # On autorise finishing à 12h et commençant à 12h (pas de chevauchement)
+            if debut < exist_fin and fin > exist_debut:
+                chevauche = True
+                break
+        
+        if not chevauche:
+            conn.execute(
+                "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
+                [salle_id, personne, date, debut, fin, participants]
+            )
     return redirect("/")
 
 
