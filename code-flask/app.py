@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from flask import Flask, redirect, render_template_string, request
 
 from base import ouvrir_base
@@ -9,12 +10,13 @@ PAGE = """
 <h2>Salles</h2>
 <ul>
   {% for salle in salles %}
-    <li>{{ salle["nom"] }} 
+    <li>{{ salle["nom"] }} ({{ salle["type"] }})
       <form method="post" action="/salles/{{ salle["id"] }}/supprimer">
         <button>Supprimer</button>
       </form>
       <form method="post" action="/salles/{{ salle["id"] }}/modifier">
         <input name="nom" value="{{ salle["nom"] }}" placeholder="Nom" required>
+        <input name="type" value="{{ salle["type"] }}" placeholder="Type" required>
         <input name="capacite" type="number" min="1" value="{{ salle["capacite"] }}" placeholder="Capacité" required>
         projecteur: <input name="projecteur" type="checkbox" value="1" {% if salle["projecteur"] == 1 %}checked{% endif %}>
         <button>Modifier</button>
@@ -25,6 +27,7 @@ PAGE = """
         <input name="debut" type="time" required>
         <input name="fin" type="time" required>
         <input name="participants" type="number" min="1" placeholder="Participants" required>
+        <input name="semaines" type="number" min="1" value="1" placeholder="Semaines">
         <button>Réserver</button>
       </form>
       <a href="/salles/{{ salle["id"] }}/planning">Planning</a>
@@ -34,6 +37,7 @@ PAGE = """
 
 <form method="post" action="/salles">
   <input name="nom" placeholder="Nom" required>
+  <input name="type" placeholder="Type" value="cours" required>
   <input name="capacite" type="number" min="1" placeholder="Capacité" required>
   projecteur: <input name="projecteur" type="checkbox" value="1">
   <button>Ajouter</button>
@@ -47,6 +51,8 @@ PAGE = """
 <p style="color:red">Erreur : La durée doit être comprise entre 30 minutes et 4 heures.</p>
 {% elif erreur == "chevauchement" %}
 <p style="color:red">Erreur : Une réservation existe déjà à cette heure.</p>
+{% elif erreur == "chevauchement_personne" %}
+<p style="color:red">Erreur : Cette personne a déjà une réservation qui se chevauche sur ce créneau.</p>
 {% endif %}
 """
 
@@ -58,7 +64,7 @@ app = Flask(__name__)
 def accueil():
     erreur = request.args.get('erreur')
     with ouvrir_base() as conn:
-        salles = conn.execute("SELECT id, nom FROM salles").fetchall()
+        salles = conn.execute("SELECT id, nom, capacite, projecteur, type FROM salles").fetchall()
     return render_template_string(PAGE, salles=salles, erreur=erreur)
 
 
@@ -66,10 +72,11 @@ def accueil():
 @app.post("/salles")
 def ajouter_salle():
     nom = request.form["nom"]
+    type_local = request.form.get("type", "cours")
     capacite = int(request.form["capacite"])
     projecteur = 1 if request.form.get("projecteur") else 0
     with ouvrir_base() as conn:
-        conn.execute("INSERT INTO salles (nom, capacite, projecteur) VALUES (?, ?, ?)", [nom, capacite, projecteur])
+        conn.execute("INSERT INTO salles (nom, capacite, projecteur, type) VALUES (?, ?, ?, ?)", [nom, capacite, projecteur, type_local])
     return redirect("/")
 
 
@@ -85,10 +92,11 @@ def supprimer_salle(salle_id):
 @app.post("/salles/<int:salle_id>/modifier")
 def modifier_salle(salle_id):
     nom = request.form["nom"]
+    type_local = request.form.get("type", "cours")
     capacite = int(request.form["capacite"])
     projecteur = 1 if request.form.get("projecteur") else 0
     with ouvrir_base() as conn:
-        conn.execute("UPDATE salles SET nom = ?, capacite = ?, projecteur = ? WHERE id = ?", [nom, capacite, projecteur, salle_id])
+        conn.execute("UPDATE salles SET nom = ?, capacite = ?, projecteur = ?, type = ? WHERE id = ?", [nom, capacite, projecteur, type_local, salle_id])
     return redirect("/")
 
 
@@ -100,6 +108,7 @@ def reserver_salle(salle_id):
     debut = request.form["debut"]
     fin = request.form["fin"]
     participants = int(request.form["participants"])
+    semaines = int(request.form.get("semaines") or 1)
     
     with ouvrir_base() as conn:
         # Récupérer la capacité de la salle
@@ -121,29 +130,34 @@ def reserver_salle(salle_id):
         if duree_min < 30 or duree_min > 4 * 60:
             return redirect("/?erreur=duree")
         
-        # Vérifier les chevauchements avec les réservations existantes
-        reservations_existantes = conn.execute(
-            "SELECT debut, fin FROM reservations WHERE salle_id = ?", [salle_id]
-        ).fetchall()
+        # Calculer toutes les dates de la réservation répétée chaque semaine (B3)
+        date_depart = datetime.strptime(date, "%Y-%m-%d")
+        dates = [(date_depart + timedelta(weeks=i)).strftime("%Y-%m-%d") for i in range(semaines)]
         
-        chevauche = False
-        for res in reservations_existantes:
-            exist_debut = res["debut"]
-            exist_fin = res["fin"]
-            # Deux intervalles [debut, fin] et [exist_debut, exist_fin] se chevauchent si :
-            # debut < exist_fin ET fin > exist_debut
-            # On autorise finishing à 12h et commençant à 12h (pas de chevauchement)
-            if debut < exist_fin and fin > exist_debut:
-                chevauche = True
-                break
+        # Vérifier les chevauchements pour chaque occurrence
+        for d in dates:
+            # Vérifier que la personne n'a pas déjà une réservation qui se chevauche (B1)
+            reservations_personne = conn.execute(
+                "SELECT debut, fin FROM reservations WHERE personne = ? AND date = ?", [personne, d]
+            ).fetchall()
+            for res in reservations_personne:
+                if debut < res["fin"] and fin > res["debut"]:
+                    return redirect("/?erreur=chevauchement_personne")
+
+            # Vérifier les chevauchements avec les réservations existantes pour la même salle
+            reservations_existantes = conn.execute(
+                "SELECT debut, fin FROM reservations WHERE salle_id = ? AND date = ?", [salle_id, d]
+            ).fetchall()
+            for res in reservations_existantes:
+                if debut < res["fin"] and fin > res["debut"]:
+                    return redirect("/?erreur=chevauchement")
         
-        if not chevauche:
+        # Si aucun conflit sur toute la période, insérer les réservations
+        for d in dates:
             conn.execute(
                 "INSERT INTO reservations (salle_id, personne, date, debut, fin, participants) VALUES (?, ?, ?, ?, ?, ?)",
-                [salle_id, personne, date, debut, fin, participants]
+                [salle_id, personne, d, debut, fin, participants]
             )
-        else:
-            return redirect("/?erreur=chevauchement")
     return redirect("/")
 
 
